@@ -1,5 +1,7 @@
 # Some tests for memory access speed for GTX 1050 mobile GPU with HIP
 
+This work is intended to run in a docker container built from the Dockerfile. Vscode configuration for running in the container included. Use `--build-arg USERNAME=... --build-arg PASSWORD=...` flags to set up a user. The ssh server started by the entry `CMD` forces the ssh server to use less secure algorithms to allow old Nvidia debugging tools to access the container via ssh.
+
 Build:
 
 ``` 
