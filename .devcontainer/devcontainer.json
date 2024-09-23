@@ -1,0 +1,15 @@
+{
+    "name": "vscodehipcuda",
+    "image": "hipcuda4:latest",
+    "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+    "workspaceFolder": "${localWorkspaceFolder}",
+    //"runArgs": ["--device=/dev/kfd", "--device=/dev/dri", "--security-opt=seccomp=unconfined"],
+    "runArgs": ["--gpus", "all", ],
+    //"customizations": {
+    //    "vscode": {
+    //        "extensions": ["ms-vscode.cpptools-extension-pack",
+    //                       "nvidia.nsight-vscode-edition"]
+    //    }
+    //},
+    "containerEnv": {"LANG": "C.UTF-8"}
+}

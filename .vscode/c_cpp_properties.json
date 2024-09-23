@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/rocm/lib",
+                "/opt/rocm/include",
+                "/usr/local/cuda/lib64",
+                "/usr/lib/gcc/x86_64-linux-gnu/11/include/",
+                "/usr/local/cuda/targets/x86_64-linux/include/"
+            ],
+            "defines": [],
+            "cStandard": "c17",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "clang-x64", //"linux-clang-x64",
+            "compilerPath": "/opt/rocm/bin/hipcc",
+            "compilerArgs": [
+                "-D GPU_RUNTIME=CUDA"
+            ]
+        }
+    ],
+    "version": 4
+}
