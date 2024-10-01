@@ -6,7 +6,7 @@ Build:
 
 ``` 
 cmake -S . -B build -D GPU_RUNTIME=CUDA
-cmake --build build && build/hello_world
+cmake --build build
 ```
 
 Then run `build/hello_world` to get some numbers from system time on execution of different matrix multiplication kernels.

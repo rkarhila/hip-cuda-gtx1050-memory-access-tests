@@ -41,7 +41,8 @@ void multiply_matrices(T        alpha,
                        int      stride1_b,
                        int      stride2_b,
                        T*       C,
-                       int      stride_c)
+                       int      stride_c,
+                       T*       D)
 {
     for(int i1 = 0; i1 < m; ++i1)
     {
@@ -53,7 +54,8 @@ void multiply_matrices(T        alpha,
                 t += A[i1 * stride1_a + i3 * stride2_a] * B[i3 * stride1_b + i2 * stride2_b];
             }
             C[i1 + i2 * stride_c] = beta * C[i1 + i2 * stride_c] + alpha * t;
-        }
+          C[i1 + i2 * stride_c] += D[i1 + i2 * stride_c];
+        }      
     }
 }
 
@@ -73,14 +75,7 @@ void __global__ UnoptimisedAXBAC(const std::size_t dimA1, const std::size_t dimA
 
     const std::size_t idx = (size_t)(threadIdx.x + blockIdx.x * blockDim.x);
 
-    // const std::size_t idx = threadIdx.x + blockIdx.x * blockDim.x;
-    // printf(foo);
     // printf("local threadidx %d blockidx %d blockdim %d  ==> idx %d \n",threadIdx.x, blockIdx.x, blockDim.x, (int)idx);
-
-    // int tid = threadIdx.x;
-    // int bid = blockIdx.x;
-    // int dim = blockDim.x;
-    // printf("Threadid/blockID/blockdim --> id %d %d %d %d\n",tid, bid, dim, idx);
 
     // multiply i'th row from A with j'th column from B and add element i,j from C
     int row = (int)(idx % dimC1);
@@ -95,168 +90,17 @@ void __global__ UnoptimisedAXBAC(const std::size_t dimA1, const std::size_t dimA
     for (int i = 0; i < dimA2; i++)
     {
       // Iterate through the row in A and column in B:
-      // if (int(threadIdx.x) == 1) {
-      //  printf("A %f B %f C %f\n", A[int(idx)], B[int(idx)], C[int(idx)]);
-      //}
       int cellA = row * dimA1 + i;
       int cellB = col + i * dimB2;
 
       cellsum += (A[cellA] * B[cellB]);
 
-      // if ((int)threadIdx.x == 2 &&  (int)blockIdx.x == 2) {
-      //   printf("A[%d] = %f, B[%d] = %f, cellsum %f\n",row * dimA1 + i, A[row * dimA1 + i], i*col*dimB2, B[i*col*dimB2], cellsum);
-      // }
-
-      // printf("Helloo from thread %d (out of %d) of block %d (out of %d): %f\n", threadIdx.x, blockDim.x, blockIdx.x, gridDim.x, value);
-    }
-    // printf("row %d col %d cellsum %d\n", row, col, cellsum);
-    D[idx] = cellsum + (float)(C[int(idx)]);
-  }
-}
-
-void __global__ fourInARowAXBAC(const std::size_t dimA1, const std::size_t dimA2, const float *A,
-                                const std::size_t dimB1, const std::size_t dimB2, const float *B,
-                                const std::size_t dimC1, const std::size_t dimC2, const float *C,
-                                float *D)
-{
-
-  for (std::size_t iter = 0; iter < 10; iter++)
-  {
-
-    const std::size_t idx = (size_t)(threadIdx.x + blockIdx.x * blockDim.x);
-
-    // multiply i'th row from A with j'th column from B and add element i,j from C
-    int row = (int)(idx % dimC1);
-    int col = (int)(idx / dimC2);
-
-    // define array of length 4 here for cellsum;
-    float cellsum = 0;
-
-    // Size of A is dimA1 rows and dimA2 columns.
-    // Size of B is dimB1 rows and dimB2 columns.
-    // With row first in
-    for (int i = 0; i < dimA2; i += 4)
-    {
-// Iterate through the row in A and column in B:
-// if (int(threadIdx.x) == 1) {
-//  printf("A %f B %f C %f\n", A[int(idx)], B[int(idx)], C[int(idx)]);
-//}
-#pragma unroll
-      for (int j = 0; j < 4; j++)
-      {
-        int cellA = row * dimA1 + (i + j);
-        int cellB = col + (i + j) * dimB2;
-        cellsum += (float)(A[cellA] * B[cellB]);
-      }
     }
     D[idx] = cellsum + (float)(C[int(idx)]);
   }
 }
 
-void __global__ eightInARowAXBAC(const std::size_t dimA1, const std::size_t dimA2, const float *A,
-                                 const std::size_t dimB1, const std::size_t dimB2, const float *B,
-                                 const std::size_t dimC1, const std::size_t dimC2, const float *C,
-                                 float *D)
-{
-  for (std::size_t iter = 0; iter < 10; iter++)
-  {
-    const std::size_t idx = (size_t)(threadIdx.x + blockIdx.x * blockDim.x);
 
-    // multiply i'th row from A with j'th column from B and add element i,j from C
-    int row = (int)(idx % dimC1);
-    int col = (int)(idx / dimC2);
-
-    // define array of length 4 here for cellsum;
-    float cellsum = 0;
-
-    // Size of A is dimA1 rows and dimA2 columns.
-    // Size of B is dimB1 rows and dimB2 columns.
-    // With row first in
-    for (int i = 0; i < dimA2; i += 8)
-    {
-// Iterate through the row in A and column in B:
-#pragma unroll
-      for (int j = 0; j < 8; j++)
-      {
-        int cellA = row * dimA1 + (i + j);
-        int cellB = col + (i + j) * dimB2;
-        cellsum += (float)(A[cellA] * B[cellB]);
-      }
-    }
-    D[idx] = cellsum + (float)(C[int(idx)]);
-  }
-}
-
-void __global__ thirtytwoBlockAXBAC(const std::size_t dimA1, const std::size_t dimA2, const float *A,
-                                    const std::size_t dimB1, const std::size_t dimB2, const float *B,
-                                    const std::size_t dimC1, const std::size_t dimC2, const float *C,
-                                    float *D)
-{
-  for (std::size_t iter = 0; iter < 10; iter++)
-  {
-    const std::size_t id_ = (size_t)(32 * (threadIdx.x + blockIdx.x * blockDim.x));
-
-    for (int idx = id_; idx < id_ + 32; idx++)
-    {
-      // multiply i'th row from A with j'th column from B and add element i,j from C
-      int row = (int)(idx % dimC1);
-      int col = (int)(idx / dimC2);
-
-      // define array of length 4 here for cellsum;
-      float cellsum = 0;
-
-      // Size of A is dimA1 rows and dimA2 columns.
-      // Size of B is dimB1 rows and dimB2 columns.
-      // With row first in
-      for (int i = 0; i < dimA2; i += 8)
-      {
-// Iterate through the row in A and column in B:
-#pragma unroll
-        for (int j = 0; j < 8; j++)
-        {
-          int cellA = row * dimA1 + (i + j);
-          int cellB = col + (i + j) * dimB2;
-          cellsum += (float)(A[cellA] * B[cellB]);
-        }
-      }
-      D[idx] = cellsum + (float)(C[int(idx)]);
-    }
-  }
-}
-
-void __global__ moreBlocksAXBAC(const std::size_t dimA1, const std::size_t dimA2, const float *A,
-                                const std::size_t dimB1, const std::size_t dimB2, const float *B,
-                                const std::size_t dimC1, const std::size_t dimC2, const float *C,
-                                float *D)
-{
-  for (std::size_t iter = 0; iter < 10; iter++)
-  {
-    const std::size_t idx = (size_t)(threadIdx.x + blockIdx.x * blockDim.x);
-
-    // multiply i'th row from A with j'th column from B and add element i,j from C
-    int row = (int)(idx % dimC1);
-    int col = (int)(idx / dimC2);
-
-    // define array of length 4 here for cellsum;
-    float cellsum = 0;
-
-    // Size of A is dimA1 rows and dimA2 columns.
-    // Size of B is dimB1 rows and dimB2 columns.
-    // With row first in
-    for (int i = 0; i < dimA2; i += 8)
-    {
-// Iterate through the row in A and column in B:
-#pragma unroll
-      for (int j = 0; j < 8; j++)
-      {
-        int cellA = row * dimA1 + (i + j);
-        int cellB = col + (i + j) * dimB2;
-        cellsum += (float)(A[cellA] * B[cellB]);
-      }
-    }
-    D[idx] = cellsum + (float)(C[int(idx)]);
-  }
-}
 
 void __global__ moreBlocksAXBACwithSharedMemory(const std::size_t dimA1, const std::size_t dimA2, const float *A,
                                                 const std::size_t dimB1, const std::size_t dimB2, const float *B,
@@ -341,16 +185,6 @@ void __global__ moreBlocksAXBACwithSharedMemory(const std::size_t dimA1, const s
             }
           }
         }
-        // for (int i = 0; i < dimA2; i+=8) {
-        //     // Iterate through the row in A and column in B:
-        //     #pragma unroll
-        //     for (int j = 0; j< gemmBlockSize; j++) {
-        //       int cellA = row * dimA1 + (i+j);
-        //       int cellB = col + (i+j)*dimB2;
-        //       cellsum += (float)(A[cellA] * B[cellB]);
-        //     }
-        //   }
-        // }
       }
       __syncthreads();
 
@@ -409,27 +243,28 @@ int main(int argc, char *argv[])
 
   // Size of A is dimA1 rows and dimA2 columns.
   // Size of B is dimB1 rows and dimB2 columns.
+  // dimA2 and dimB1 must be the same!
+  // output size is dimA1 x dimB2
 
   constexpr std::size_t dimA1{640};
-  constexpr std::size_t dimA2{888};
+  constexpr std::size_t dimA2{896};
+  constexpr std::size_t dimB2{704};
+
+  //constexpr std::size_t dimA1{16384};
+  //constexpr std::size_t dimA2{28672};
+
+  //constexpr std::size_t dimB2{24576};
+
 
   constexpr std::size_t dimB1{dimA2};
-  constexpr std::size_t dimB2{704};
 
   constexpr std::size_t dimC1{dimA1};
   constexpr std::size_t dimC2{dimB2};
 
-  // How much compute can we make?
-  // gtx 1050 apparently has 640 CUDA cores
 
-  std::cout << "number of output cells: " << dimC1 * dimC2 << std::endl;
 
-  constexpr int num_output_cells = dimC1 * dimC2;
-
-  constexpr dim3 number_of_blocks(num_output_cells / 16);
-  // constexpr dim3 number_of_threads_per_block(A1 / 640 + 1);
-  constexpr dim3 number_of_threads_per_block(16);
-  std::size_t blockdim = 16;
+  // Allocate memory for fp32 arrays in HOST memory
+  // using hipHostMalloc for zero-copy access to values!
 
   float *A{};
   float *B{};
@@ -437,81 +272,100 @@ int main(int argc, char *argv[])
   float *D{};
   float *ref{};
 
+  std::cout << "Allocating memory on host" << std::endl;
+
   HIP_CHECK(hipHostMalloc(&A, dimA1 * dimA2 * sizeof(float)));
   HIP_CHECK(hipHostMalloc(&B, dimB1 * dimB2 * sizeof(float)));
   HIP_CHECK(hipHostMalloc(&C, dimC1 * dimC2 * sizeof(float)));
   HIP_CHECK(hipHostMalloc(&D, dimC1 * dimC2 * sizeof(float)));
   HIP_CHECK(hipHostMalloc(&ref, dimC1 * dimC2 * sizeof(float)));
 
-  // Create some data
-  constexpr std::float_t min_value{-0.01};
-  constexpr std::float_t max_value{0.05};
 
-  std::random_device rd;
-  std::mt19937 gen(rd());
-
-  // Create a distribution for float
-  std::uniform_real_distribution<float> dis(min_value, max_value);
-
-  for (std::size_t i = 0; i < dimA1 * dimA2; ++i)
-  {
-    // x[i] = static_cast<float>(dis(gen)); //
-    A[i] = static_cast<float>(dis(gen));
-  }
-
-  std::cout << "some values of A:";
-  for (std::size_t i = 0; i < 6; ++i)
-  {
-    std::cout << A[i] << " ";
-  }
-  std::cout << std::endl;
-
-  for (std::size_t i = 0; i < dimB1 * dimB2; ++i)
-  {
-    // x[i] = static_cast<float>(dis(gen)); //
-    B[i] = static_cast<float>(dis(gen));
-  }
-
-  for (std::size_t i = 0; i < dimC1 * dimC2; ++i)
-  {
-    // x[i] = static_cast<float>(dis(gen)); //
-    C[i] = static_cast<float>(dis(gen));
-    D[i] = 0.0;
-  }
-
-
-  // Launch the kernel with 4 blocks and N/4+1 threads per block -> N+4 threads in total, running more or less at the same time
-  // constexpr dim3 number_of_blocks(4);
-  // constexpr dim3 number_of_threads_per_block(N / 4 + 1);  // create extra threads to demonstrate bound-checks in kernel
-
-  // Starting time for the clock
-  // Transfer memory:
+  // Allocate memory for fp32 arrays in GPU memory
+  // using hipMallocManaged (why managed? I already forgot!)
 
   float *A_{};
   float *B_{};
   float *C_{};
   float *D_{};
   
+  std::cout << "Allocating memory on GPU" << std::endl;
 
   HIP_CHECK(hipMallocManaged(&A_, dimA1 * dimA2 * sizeof(float)));
   HIP_CHECK(hipMallocManaged(&B_, dimB1 * dimB2 * sizeof(float)));
   HIP_CHECK(hipMallocManaged(&C_, dimC1 * dimC2 * sizeof(float)));
   HIP_CHECK(hipMallocManaged(&D_, dimC1 * dimC2 * sizeof(float)));
 
-  HIP_CHECK(hipMemcpy(A_, A, dimA1 * dimA2 * sizeof(float), hipMemcpyHostToDevice));
-  HIP_CHECK(hipMemcpy(B_, B, dimB1 * dimB2 * sizeof(float), hipMemcpyHostToDevice));
-  HIP_CHECK(hipMemcpy(C_, C, dimC1 * dimC2 * sizeof(float), hipMemcpyHostToDevice));
-  HIP_CHECK(hipMemcpy(D_, D, dimC1 * dimC2 * sizeof(float), hipMemcpyHostToDevice));
 
-  // std::cout << "some values of A_ after a sync transfer:";
-  // for(std::size_t i = 0; i < 6; ++i)
+
+  // std::cout << "Filling fp32 arrays with random on HOST:" << std::endl;
+
+  // // Create some data
+  // constexpr std::float_t min_value{-0.01};
+  // constexpr std::float_t max_value{0.05};
+
+  // std::random_device rd;
+  // std::mt19937 gen(rd());
+
+  // // Create a distribution for float
+  // std::uniform_real_distribution<float> dis(min_value, max_value);
+
+  // for (std::size_t i = 0; i < dimA1 * dimA2; ++i)
   // {
-  //     std::cout << (float)A_[i] << " ";
+  //   // x[i] = static_cast<float>(dis(gen)); //
+  //   A[i] = static_cast<float>(dis(gen));
+  // }
+
+  // std::cout << "some values of A:";
+  // for (std::size_t i = 0; i < 6; ++i)
+  // {
+  //   std::cout << A[i] << " ";
   // }
   // std::cout << std::endl;
+
+  // for (std::size_t i = 0; i < dimB1 * dimB2; ++i)
+  // {
+  //   // x[i] = static_cast<float>(dis(gen)); //
+  //   B[i] = static_cast<float>(dis(gen));
+  // }
+
+  // for (std::size_t i = 0; i < dimC1 * dimC2; ++i)
+  // {
+  //   // x[i] = static_cast<float>(dis(gen)); //
+  //   C[i] = static_cast<float>(dis(gen));
+  //   D[i] = 0.0;
+  // }
+
+
+  // Define things for timing operations
+
   auto start = high_resolution_clock::now();
   auto stop = high_resolution_clock::now();
   auto duration = duration_cast<microseconds>(stop - start);
+
+
+
+  // How fast is the memory transfer? Let's use the slower synchronous copy:
+
+  std::cout << "Time 10 x HipMemcpy: "<< std::endl;
+
+  start = high_resolution_clock::now();
+
+  for (int iter = 0; iter < 10; iter++)
+  {
+    HIP_CHECK(hipMemcpy(A_, A, dimA1 * dimA2 * sizeof(float), hipMemcpyHostToDevice));
+    HIP_CHECK(hipMemcpy(B_, B, dimB1 * dimB2 * sizeof(float), hipMemcpyHostToDevice));
+    HIP_CHECK(hipMemcpy(C_, C, dimC1 * dimC2 * sizeof(float), hipMemcpyHostToDevice));
+    HIP_CHECK(hipMemcpy(D_, D, dimC1 * dimC2 * sizeof(float), hipMemcpyHostToDevice));
+    hipDeviceSynchronize();
+  }
+  stop = high_resolution_clock::now();
+  duration = duration_cast<microseconds>(stop - start);
+  std::cout << "   One operation took " << (float)duration.count() / 1000000.0 /10.0 << " seconds on average" << std::endl;
+
+
+
+  // The following was for testing hipblas operations but I never got that far, so let's skip these lines:
 
   const int m = dimA1; //"Number of rows of matrices A_i and C_i");
   const int n = dimB2; //"Number of columns of matrices B_i and C_i");
@@ -561,59 +415,104 @@ int main(int argc, char *argv[])
   stride_c = hipblasStride(n) * ldc;
 
 
+
+
+  // And here we're back to our experiment.
+
+  // Let's time the naive matrix multiplication, accessing data directly from
+  // global memory:
+
+
+  // How much compute can we make?
+  // gtx 1050 apparently has 640 CUDA cores.
+  // rtx 4090 has 16384 CUDA cores.
+
+  std::cout << "number of output cells: " << dimC1 * dimC2 << std::endl;
+
+  constexpr int num_output_cells = dimC1 * dimC2;
+
+  constexpr dim3 number_of_blocks(num_output_cells / 16);
+  // constexpr dim3 number_of_threads_per_block(A1 / 640 + 1);
+  constexpr dim3 number_of_threads_per_block(16);
+  std::size_t blockdim = 16;
+
+
+  if (dimC1 * dimC2 < 4000000) {
+    // Time and launch kernel:
+
+    std::cout << "Time 10 x naive multiplication with zero-copy memory access:" << std::endl;
+
+    start = high_resolution_clock::now();
+
+    hipLaunchKernelGGL(UnoptimisedAXBAC, number_of_blocks, number_of_threads_per_block, blockdim, 0, dimA1, dimA2, A, dimB1, dimB2, B, dimC1, dimC2, C, D); // calls HelloWorld(N, x)
+    hipDeviceSynchronize();
+
+    stop = high_resolution_clock::now();
+    duration = duration_cast<microseconds>(stop - start);
+    std::cout << "    Time taken by one iteration: " << (float)duration.count() / 1000000.0 / 10.0 << " seconds on average" << std::endl;
+  }
+
+
+
+  // Let's try the same accessing the data from global memory:
+
+  std::cout << "Time 10 x naive multiplication with global memory: " << std::endl;
+
   start = high_resolution_clock::now();
-  multiply_matrices<float>(h_alpha,
-                                 h_beta,
-                                 m,
-                                 n,
-                                 k,
-                                 A,
-                                 stride1_a,
-                                 stride2_a,
-                                 B,
-                                 stride1_b,
-                                 stride2_b,
-                                 ref,
-                                 ldc);
+
+  hipLaunchKernelGGL(UnoptimisedAXBAC, number_of_blocks, number_of_threads_per_block, blockdim, 0, dimA1, dimA2, A_, dimB1, dimB2, B_, dimC1, dimC2, C_, D_); // calls HelloWorld(N, x)
+  hipDeviceSynchronize();
 
   stop = high_resolution_clock::now();
   duration = duration_cast<microseconds>(stop - start);
-  std::cout << "Time taken by CPU reference implementation: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
+  std::cout << "    Time taken by one iteration " << (float)duration.count() / 1000000.0 / 10.0 << " seconds on average" << std::endl;
 
 
 
-  constexpr dim3 number_of_blocks_c(64);
-  constexpr dim3 number_of_threads_per_block_c(512);
-  constexpr int blockdim_c(512);
-  constexpr int gemmBlockSize = 32;
+  // Let's try the block based approach:
+  
+  // Define our block size:
+  constexpr int gemmBlockSize = 16;
+
+  // define the required shared memory size:
   constexpr std::size_t sharedMemSize = 3 * gemmBlockSize * gemmBlockSize * sizeof(float);
 
+  // Find the amount of blocks we can use based on device shared memory size:
+  int max_usable_blocks = (int)deviceProp.l2CacheSize/(int)sharedMemSize;
+  std::cout << "There is enough L2 for " << max_usable_blocks << " blocks each using " << (int)sharedMemSize << " shared mem" << std::endl;
+  
+  // Find the amount of blocks we need to calculate:
+  int required_blocks = (dimC1/gemmBlockSize) * (dimC2 / gemmBlockSize);
+  
+  int using_blocks = min(max_usable_blocks, required_blocks);
+
+  // Set the kernel launch dimensions:
+  dim3 number_of_blocks_c( using_blocks  );
+  constexpr dim3 number_of_threads_per_block_c(gemmBlockSize*gemmBlockSize);
+  constexpr int blockdim_c(gemmBlockSize*gemmBlockSize);
+
+  // Do a final check:
   if ((int)sharedMemSize * (int)number_of_blocks_c.x > deviceProp.l2CacheSize) {
     std::cout << "Shared memory " << deviceProp.l2CacheSize << " is not enough for " << number_of_blocks_c.x << " with shared mem each " << (int)sharedMemSize << std::endl;
   }
   else {
+
+    std::cout << "Time 10 x block based multiplication with shared memory: " << std::endl;
+
     start = high_resolution_clock::now();
     // cudaProfilerStart();
 
-    std:size_t t_256 = 256;
-    //hipLaunchKernelGGL(moreBlocksAXBACwithSharedMemory, number_of_blocks_c, number_of_threads_per_block_c, sharedMemSize, 0, dimA1, dimA2, A_, dimB1, dimB2, B_, dimC1, dimC2, C_, D_, gemmBlockSize); // calls HelloWorld(N, x)
+    // I messed up the hipLaunchKernelGGL function definitions somehow, 
+    // and reverted to CUDA syntax of using <<< and >>> for launching the kernel:
     moreBlocksAXBACwithSharedMemory<<<number_of_blocks_c, number_of_threads_per_block_c, sharedMemSize, 0>>>(dimA1, dimA2, A_, dimB1, dimB2, B_, dimC1, dimC2, C_, D_, gemmBlockSize);
     hipDeviceSynchronize();
     // cudaProfilerStop();
-    //  Ending time for the clock
+
     stop = high_resolution_clock::now();
     duration = duration_cast<microseconds>(stop - start);
-    std::cout << "Time taken by 10 x moreBlocksAXBAC with shared memory: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
+    std::cout << "     Time taken by one iteration on average: " << (float)duration.count() / 1000000.0 /10.0<< " seconds on average" << std::endl;
   }
-  start = high_resolution_clock::now();
-  cudaProfilerStart();
-  hipLaunchKernelGGL(moreBlocksAXBAC, number_of_blocks_c, number_of_threads_per_block_c, blockdim_c, 0, dimA1, dimA2, A_, dimB1, dimB2, B_, dimC1, dimC2, C_, D_); // calls HelloWorld(N, x)
-  hipDeviceSynchronize();
-  cudaProfilerStop();
-  // Ending time for the clock
-  stop = high_resolution_clock::now();
-  duration = duration_cast<microseconds>(stop - start);
-  std::cout << "Time taken by 10 x moreBlocksAXBAC with global memory: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
+
 
   // constexpr dim3 number_of_threads_per_block_b(dimB2/32);
   // start = high_resolution_clock::now();
@@ -626,19 +525,6 @@ int main(int argc, char *argv[])
   // duration = duration_cast<microseconds>(stop - start);
   // std::cout << "Time taken by 10 x thirtytwoBlockAXBAC with global memory: " << (float)duration.count()/1000000.0 << " seconds" << std::endl;
 
-  start = high_resolution_clock::now();
-
-  for (int iter = 0; iter < 1000; iter++)
-  {
-    HIP_CHECK(hipMemcpy(A_, A, dimA1 * dimA2 * sizeof(float), hipMemcpyHostToDevice));
-    HIP_CHECK(hipMemcpy(B_, B, dimB1 * dimB2 * sizeof(float), hipMemcpyHostToDevice));
-    HIP_CHECK(hipMemcpy(C_, C, dimC1 * dimC2 * sizeof(float), hipMemcpyHostToDevice));
-    HIP_CHECK(hipMemcpy(D_, D, dimC1 * dimC2 * sizeof(float), hipMemcpyHostToDevice));
-    hipDeviceSynchronize();
-  }
-  stop = high_resolution_clock::now();
-  duration = duration_cast<microseconds>(stop - start);
-  std::cout << "Time taken by 100 x HipMemcpy: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
 
   // std::cout << "some values of A_ after 1000 sync transfers:";
   // for(std::size_t i = 0; i < 6; ++i)
@@ -649,7 +535,7 @@ int main(int argc, char *argv[])
 
   start = high_resolution_clock::now();
 
-  for (int iter = 0; iter < 1000; iter++)
+  for (int iter = 0; iter < 10; iter++)
   {
     HIP_CHECK(hipMemcpyAsync(A_, A, dimA1 * dimA2 * sizeof(float), hipMemcpyHostToDevice));
     HIP_CHECK(hipMemcpyAsync(B_, B, dimB1 * dimB2 * sizeof(float), hipMemcpyHostToDevice));
@@ -667,7 +553,7 @@ int main(int argc, char *argv[])
 
   stop = high_resolution_clock::now();
   duration = duration_cast<microseconds>(stop - start);
-  std::cout << "Time taken by 100 x HipMemcpyAsync: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
+  std::cout << "Time taken by 10 x HipMemcpyAsync: " << (float)duration.count() / 1000000.0 /10.0 << " seconds on average" << std::endl;
 
   // start = high_resolution_clock::now();
   // cudaProfilerStart();
@@ -679,39 +565,48 @@ int main(int argc, char *argv[])
   // duration = duration_cast<microseconds>(stop - start);
   // std::cout << "Time taken by 10 x thirtytwoBlockAXBAC with global memory: " << (float)duration.count()/1000000.0 << " seconds" << std::endl;
 
-  start = high_resolution_clock::now();
-  hipLaunchKernelGGL(UnoptimisedAXBAC, number_of_blocks, number_of_threads_per_block, blockdim, 0, dimA1, dimA2, A_, dimB1, dimB2, B_, dimC1, dimC2, C_, D_); // calls HelloWorld(N, x)
-  hipDeviceSynchronize();
-  // Ending time for the clock
-  stop = high_resolution_clock::now();
-  duration = duration_cast<microseconds>(stop - start);
-  std::cout << "Time taken by 10 x UnoptimisedAXBAC with global memory: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
+  // start = high_resolution_clock::now();
+  // hipLaunchKernelGGL(fourInARowAXBAC, number_of_blocks, number_of_threads_per_block, blockdim, 0, dimA1, dimA2, A_, dimB1, dimB2, B_, dimC1, dimC2, C_, D_); // calls HelloWorld(N, x)
+  // hipDeviceSynchronize();
+  // // Ending time for the clock
+  // stop = high_resolution_clock::now();
+  // duration = duration_cast<microseconds>(stop - start);
+  // std::cout << "Time taken by 10 x fourInARowAXBAC with global memory: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
+
+  // start = high_resolution_clock::now();
+  // hipLaunchKernelGGL(eightInARowAXBAC, number_of_blocks, number_of_threads_per_block, blockdim, 0, dimA1, dimA2, A_, dimB1, dimB2, B_, dimC1, dimC2, C_, D_); // calls HelloWorld(N, x)
+  // hipDeviceSynchronize();
+  // // Ending time for the clock
+  // stop = high_resolution_clock::now();
+  // duration = duration_cast<microseconds>(stop - start);
+  // std::cout << "Time taken by 10 x eightInARowAXBAC with global memory: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
+
+
+
 
   start = high_resolution_clock::now();
-  hipLaunchKernelGGL(fourInARowAXBAC, number_of_blocks, number_of_threads_per_block, blockdim, 0, dimA1, dimA2, A_, dimB1, dimB2, B_, dimC1, dimC2, C_, D_); // calls HelloWorld(N, x)
-  hipDeviceSynchronize();
-  // Ending time for the clock
+  multiply_matrices<float>(h_alpha,
+                                 h_beta,
+                                 m,
+                                 n,
+                                 k,
+                                 A,
+                                 stride1_a,
+                                 stride2_a,
+                                 B,
+                                 stride1_b,
+                                 stride2_b,
+                                 ref,
+                                 ldc,
+                                 C);
+
+
   stop = high_resolution_clock::now();
   duration = duration_cast<microseconds>(stop - start);
-  std::cout << "Time taken by 10 x fourInARowAXBAC with global memory: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
+  std::cout << "Time taken by CPU reference implementation: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
 
-  start = high_resolution_clock::now();
-  hipLaunchKernelGGL(eightInARowAXBAC, number_of_blocks, number_of_threads_per_block, blockdim, 0, dimA1, dimA2, A_, dimB1, dimB2, B_, dimC1, dimC2, C_, D_); // calls HelloWorld(N, x)
-  hipDeviceSynchronize();
-  // Ending time for the clock
-  stop = high_resolution_clock::now();
-  duration = duration_cast<microseconds>(stop - start);
-  std::cout << "Time taken by 10 x eightInARowAXBAC with global memory: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
 
-  start = high_resolution_clock::now();
 
-  hipLaunchKernelGGL(UnoptimisedAXBAC, number_of_blocks, number_of_threads_per_block, blockdim, 0, dimA1, dimA2, A, dimB1, dimB2, B, dimC1, dimC2, C, D); // calls HelloWorld(N, x)
-  hipDeviceSynchronize();
-
-  // Ending time for the clock
-  stop = high_resolution_clock::now();
-  duration = duration_cast<microseconds>(stop - start);
-  std::cout << "Time taken by 10 x UnoptimisedAXBAC with zero-copy: " << (float)duration.count() / 1000000.0 << " seconds" << std::endl;
 
   std::cout << "Dims of D: " << dimC1 << " " << dimC2 << std::endl;
   for (std::size_t i = 0; i < min((int)(dimC1 * dimC2), (int)10); ++i)
